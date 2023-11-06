@@ -1,0 +1,94 @@
+---
+- name: Install packages
+  apt:
+    pkg:
+      - "{{ item }}"
+    update_cache: yes
+    state: present
+  loop:
+    - curl
+    - vim
+    - iputils-ping
+
+- name: Download and install NVM
+  shell: |
+    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.5/install.sh | bash
+  args:
+    executable: /bin/bash
+    chdir: "{{ ansible_env.HOME }}"
+    creates: "{{ ansible_env.HOME }}/.nvm/nvm.sh"
+
+- name: Select nodejs version
+  shell: |
+    . {{ ansible_env.HOME }}/.nvm/nvm.sh &&
+
+    nvm install {{ NODE_VERSION }} &&
+    nvm use {{ NODE_VERSION }} &&
+
+    ln -s "$(which node)" /usr/bin/node
+    ln -s "$(which npm)" /usr/bin/npm
+    ln -s "$(which npx)" /usr/bin/npx
+  args:
+    executable: /bin/bash
+    chdir: "{{ ansible_env.HOME }}"
+    creates: "{{ ansible_env.HOME }}/.nvm/versions/node/v{{ NODE_VERSION }}"
+
+- name: Install PM2
+  npm:
+    name: pm2
+    global: true
+    executable: /root/.nvm/versions/node/v{{ NODE_VERSION }}/bin/npm
+    state: present
+
+- name: Create dir /node
+  file:
+    path: /node
+    state: directory
+
+- name: Copy files
+  copy:
+    src: "{{ item }}"
+    dest: /node/{{ item }}
+  loop:
+    - package.json
+    - app-pm2.json
+
+- name: Copy index.js template
+  template:
+    src: index.js.j2
+    dest: /node/index.js
+  notify:
+    - Reload PM2
+
+- name: NPM Install
+  npm:
+    path: /node/
+    executable: /root/.nvm/versions/node/v{{ NODE_VERSION }}/bin/npm
+    state: present
+
+- name: Set environment
+  shell: echo "NUMBER={{ ansible_hostname }}" >> .env
+  args:
+    executable: /bin/bash
+    chdir: "/node"
+
+- name: Create symbolic link to PM2
+  shell: ln -s /root/.nvm/versions/node/v{{ NODE_VERSION }}/bin/pm2 /usr/bin/pm2
+  args:
+    executable: /bin/bash
+    creates: /usr/bin/pm2
+
+- name: Start the application
+  shell: |
+    pm2 start app-pm2.json &&
+    pm2 startup &&
+    pm2 save
+  args:
+    executable: /bin/bash
+    chdir: "/node"
+  register: pm2_state
+
+- name: Show PM2 state
+  when: pm2_state is defined
+  debug:
+    msg: "{{ pm2_state }}"

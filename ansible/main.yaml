@@ -1,0 +1,13 @@
+- name: configure and deploy the webservers
+  hosts: webserver_ips
+  become: yes
+  roles:
+    - webserver
+  vars:
+    NODE_VERSION_LTS: 20.9.0
+    NODE_VERSION: 16.15.1
+# - name: configure nginx
+#   hosts: nginx_ip
+#   become: yes
+#   roles:
+#     - nginx

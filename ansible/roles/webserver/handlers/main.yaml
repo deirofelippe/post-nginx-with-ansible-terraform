@@ -1,0 +1,5 @@
+---
+- name: Reload PM2
+  shell: pm2 reload app
+  args:
+    executable: /bin/bash

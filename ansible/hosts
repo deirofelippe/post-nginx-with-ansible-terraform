@@ -1,0 +1,7 @@
+[webserver_ips]
+10.0.1.2
+10.0.1.3
+
+[all:vars]
+ansible_user=root
+ansible_ssh_private_key_file=~/.ssh/ansible-test
